@@ -42,28 +42,38 @@ STOPSIGNAL SIGKILL
 RUN curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | tee /etc/apt/trusted.gpg.d/apt.postgresql.org.gpg >/dev/null \
     && echo "deb http://apt.postgresql.org/pub/repos/apt/ bullseye-pgdg main" > /etc/apt/sources.list.d/postgresql.list \
     && apt-get update \
-    && apt-get -y --no-install-recommends install postgresql-14 postgresql-9.6 \
+    && apt-get -y --no-install-recommends install postgresql-client-14 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY put-deb-files-here/*.deb /
 COPY put-version-file-here/version /usr/lib/version
 COPY files/lib /lib/
 
-RUN apt-get -y --no-install-recommends install /ubnt-archive-keyring_*_arm64.deb \
-    && echo 'deb https://apt.artifacts.ui.com bullseye main release beta' > /etc/apt/sources.list.d/ubiquiti.list \
-    && chmod 666 /etc/apt/sources.list.d/ubiquiti.list \
-    && apt-get update \
-    && apt-get -y --no-install-recommends install /*.deb unifi-protect \
-    && rm -f /*.deb \
-    && rm -rf /var/lib/apt/lists/* \
-    && echo "exit 0" > /usr/sbin/policy-rc.d \
-    && sed -i 's/redirectHostname: unifi//' /usr/share/unifi-core/app/config/config.yaml \
-    && mv /sbin/mdadm /sbin/mdadm.orig \
-    && mv /usr/sbin/smartctl /usr/sbin/smartctl.orig \
-    && systemctl enable storage_disk dbpermissions\
-    && pg_dropcluster --stop 9.6 main \
-    && sed -i 's/rm -f/rm -rf/' /sbin/pg-cluster-upgrade \
-    && sed -i 's/OLD_DB_CONFDIR=.*/OLD_DB_CONFDIR=\/etc\/postgresql\/9.6\/main/' /sbin/pg-cluster-upgrade
+RUN apt-get -y --no-install-recommends install /ubnt-archive-keyring_*_arm64.deb
+RUN echo 'deb https://apt.artifacts.ui.com bullseye main release beta' > /etc/apt/sources.list.d/ubiquiti.list
+RUN chmod 666 /etc/apt/sources.list.d/ubiquiti.list
+RUN apt-get update
+RUN apt-get -o DPkg::Options::=--force-confdef -y --no-install-recommends install /*.deb unifi-protect
+RUN rm -f /*.deb
+RUN rm -rf /var/lib/apt/lists/*
+RUN echo "exit 0" > /usr/sbin/policy-rc.d
+RUN sed -i "s/redirectHostname: 'unifi'//" /usr/share/unifi-core/app/config/default.yaml
+RUN mv /sbin/mdadm /sbin/mdadm.orig
+RUN mv /usr/sbin/smartctl /usr/sbin/smartctl.orig
+RUN systemctl enable storage_disk dbpermissions loop
+
+RUN sed -i 's/postgresql-cluster@14-main.service//' /lib/systemd/system/unifi-core.service
+RUN sed -i 's/postgresql@14-protect.service//' /lib/systemd/system/unifi-protect.service && \
+  sed -i 's/postgresql-cluster@14-protect.service//' /lib/systemd/system/unifi-protect.service
+RUN sed -i 's/postgresql.service//' /lib/systemd/system/ulp-go.service
+RUN sed -i 's/sudo .* psql/psql/' /usr/lib/ulp-go/scripts/unifi-goapp-mgnt-extension.sh && \
+  sed -i 's/sudo -u postgres //' /usr/lib/ulp-go/scripts/unifi-goapp-mgnt-extension.sh && \
+  sed -i 's/-U ${user}//' /usr/lib/ulp-go/scripts/unifi-goapp-mgnt-extension.sh && \
+  sed -i 's/psql_dropdb/source \/data\/ulp-go.pg.sh\n\npsql_dropdb/' /usr/lib/ulp-go/scripts/unifi-goapp-mgnt-extension.sh
+
+RUN mkdir /var/log/postgresql && ln -s /bin/true /usr/bin/pg_createcluster
+RUN mv /usr/bin/pg_isready /usr/bin/pg_isready.orig && ln -s /bin/true /usr/bin/pg_isready
+RUN ln -s /bin/true /usr/bin/pg_dropcluster && ln -s /bin/true /usr/bin/pg_conftool
 
 COPY files/sbin /sbin/
 COPY files/usr /usr/

@@ -11,16 +11,16 @@ cat << EOF
 /dev/md3:
         Version : 1.2
   Creation Time : Fri Feb  7 18:44:50 2020
-     Raid Level : raid0
+     Raid Level : raid1
      Array Size : ${sbytes} (${sgib} GiB ${sgb} GB)
-   Raid Devices : 1
-  Total Devices : 1
+   Raid Devices : 2
+  Total Devices : 2
     Persistence : Superblock is persistent
 
     Update Time : Fri Feb  7 18:47:06 2020
           State : clean
- Active Devices : 1
-Working Devices : 1
+ Active Devices : 2
+Working Devices : 2
  Failed Devices : 0
   Spare Devices : 0
 
@@ -31,5 +31,6 @@ Working Devices : 1
          Events : 0
 
     Number   Major   Minor   RaidDevice State
-       0       8        16        0      active sync   ${disk}
+       0       8        16        0      active sync   /dev/sda1
+       1       8        4        1      active sync   /dev/sdb1
 EOF
