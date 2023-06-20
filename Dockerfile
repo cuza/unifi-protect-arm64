@@ -45,15 +45,15 @@ RUN curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor 
     && apt-get -y --no-install-recommends install postgresql-client-14 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY put-deb-files-here/*.deb /
+#COPY put-deb-files-here/*.deb /
 COPY put-version-file-here/version /usr/lib/version
 COPY files/lib /lib/
 
-RUN apt-get -y --no-install-recommends install /ubnt-archive-keyring_*_arm64.deb
+RUN --mount=type=bind,target=/debs,source=put-deb-files-here,ro apt-get -y --no-install-recommends install /debs/ubnt-archive-keyring_*_arm64.deb
 RUN echo 'deb https://apt.artifacts.ui.com bullseye main release beta' > /etc/apt/sources.list.d/ubiquiti.list
 RUN chmod 666 /etc/apt/sources.list.d/ubiquiti.list
 RUN apt-get update
-RUN apt-get -o DPkg::Options::=--force-confdef -y --no-install-recommends install /*.deb unifi-protect
+RUN --mount=type=bind,target=/debs,source=put-deb-files-here,ro apt-get -o DPkg::Options::=--force-confdef -y --no-install-recommends install /debs/*.deb unifi-protect
 RUN rm -f /*.deb
 RUN rm -rf /var/lib/apt/lists/*
 RUN echo "exit 0" > /usr/sbin/policy-rc.d
