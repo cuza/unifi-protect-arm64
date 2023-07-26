@@ -1,5 +1,21 @@
-FROM arm64v8/debian:11
+FROM debian AS firmware
+RUN apt-get update \
+    && apt-get -y install \
+        wget jq binwalk dpkg-repack dpkg ca-certificates
+WORKDIR /opt
+RUN wget -q --output-document - "https://fw-update.ubnt.com/api/firmware?filter=eq~~platform~~unvr&filter=eq~~channel~~release&sort=-version&limit=10" | \
+        jq -r '._embedded.firmware[0]._links.data.href' | \
+        wget -qO fwupdate.bin -i -
+RUN binwalk --run-as=root -e fwupdate.bin
+RUN dpkg-query --admindir=_fwupdate.bin.extracted/squashfs-root/var/lib/dpkg/ -W -f="\${package} | \${Maintainer}\n" | \
+        grep -E "@ubnt.com|@ui.com" | cut -d "|" -f 1 > packages.txt
+RUN mkdir -p debs
+WORKDIR /opt/debs
+RUN while read pkg; do \
+        dpkg-repack --root=../_fwupdate.bin.extracted/squashfs-root/ --arch=arm64 ${pkg}; \
+    done < ../packages.txt
 
+FROM arm64v8/debian:11
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
@@ -45,14 +61,14 @@ RUN curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor 
     && apt-get -y --no-install-recommends install postgresql-client-14 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY put-version-file-here/version /usr/lib/version
+COPY --from=firmware /opt/_fwupdate.bin.extracted/squashfs-root/usr/lib/version /usr/lib/version
 
-RUN --mount=type=bind,target=/debs,source=put-deb-files-here,ro apt-get -y --no-install-recommends install /debs/ubnt-archive-keyring_*_arm64.deb
+RUN --mount=type=bind,from=firmware,source=/opt/debs,target=/debs apt-get -y --no-install-recommends install /debs/ubnt-archive-keyring_*_arm64.deb
 RUN echo 'deb https://apt.artifacts.ui.com bullseye main release beta' > /etc/apt/sources.list.d/ubiquiti.list
 RUN chmod 666 /etc/apt/sources.list.d/ubiquiti.list
 RUN apt-get update
-RUN --mount=type=bind,target=/debs,source=put-deb-files-here,ro apt-get -o DPkg::Options::=--force-confdef -y --no-install-recommends install /debs/*.deb unifi-protect
-RUN rm -f /*.deb
+RUN --mount=type=bind,from=firmware,source=/opt/debs,target=/debs --mount=type=bind,target=/git-debs,source=put-deb-files-here,ro \
+      apt-get -o DPkg::Options::=--force-confdef -y --no-install-recommends install /git-debs/*.deb /debs/*.deb unifi-protect
 RUN rm -rf /var/lib/apt/lists/*
 RUN echo "exit 0" > /usr/sbin/policy-rc.d
 RUN sed -i "s/redirectHostname: 'unifi'//" /usr/share/unifi-core/app/config/default.yaml
