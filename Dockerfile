@@ -1,10 +1,11 @@
+
 FROM debian AS firmware
 RUN apt-get update \
     && apt-get -y install \
         wget jq binwalk dpkg-repack dpkg ca-certificates
 WORKDIR /opt
 RUN wget -q --output-document - "https://fw-update.ubnt.com/api/firmware?filter=eq~~platform~~unvr&filter=eq~~channel~~release&sort=-version&limit=10" | \
-        jq -r '._embedded.firmware[0]._links.data.href' | \
+        jq -r '._embedded.firmware | map(select(.probability_computed == 1))[0] | ._links.data.href' \
         wget -qO fwupdate.bin -i -
 RUN binwalk --run-as=root -e fwupdate.bin
 RUN dpkg-query --admindir=_fwupdate.bin.extracted/squashfs-root/var/lib/dpkg/ -W -f="\${package} | \${Maintainer}\n" | \
