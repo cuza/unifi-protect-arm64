@@ -1,11 +1,13 @@
 FROM amd64/debian AS firmware
+ARG FW_URL
+WORKDIR /opt
 RUN apt-get update \
     && apt-get -y install \
         wget jq binwalk dpkg-repack dpkg ca-certificates
-WORKDIR /opt
-RUN wget -q --output-document - "https://fw-update.ubnt.com/api/firmware?filter=eq~~platform~~unvr&filter=eq~~channel~~release&sort=-version&limit=10" | \
+RUN test ! -z "$FW_URL" || wget -q --output-document - "https://fw-update.ubnt.com/api/firmware?filter=eq~~platform~~unvr&filter=eq~~channel~~release&sort=-version&limit=10" | \
         jq -r '._embedded.firmware | map(select(.probability_computed == 1))[0] | ._links.data.href' | \
         wget -qO fwupdate.bin -i -
+RUN test -z "$FW_URL" || wget -qO fwupdate.bin "$FW_URL"
 RUN binwalk --run-as=root -e fwupdate.bin
 RUN dpkg-query --admindir=_fwupdate.bin.extracted/squashfs-root/var/lib/dpkg/ -W -f="\${package} | \${Maintainer}\n" | \
         grep -E "@ubnt.com|@ui.com" | cut -d "|" -f 1 > packages.txt
