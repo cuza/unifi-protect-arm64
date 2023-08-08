@@ -92,6 +92,10 @@ RUN mv /usr/bin/pg_isready /usr/bin/pg_isready.orig && ln -s /bin/true /usr/bin/
 RUN ln -s /bin/true /usr/bin/pg_dropcluster && ln -s /bin/true /usr/bin/pg_conftool && ln -fs /usr/lib/postgresql/14/bin/pg_dump /usr/bin/pg_dump
 RUN chown root: /etc/sudoers.d/unifi-core
 
+RUN find /etc/dpkg/dpkg.cfg.d -type f -exec sed -i "s#/usr/bin/systemd-cat -t ##g" {} \;
+RUN apt-mark hold postgresql-14 postgresql-9.6
+RUN apt update && apt upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/*
+
 COPY files/sbin /sbin/
 COPY files/usr /usr/
 COPY files/etc /etc/
