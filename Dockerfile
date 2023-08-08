@@ -68,8 +68,11 @@ RUN echo 'deb https://apt.artifacts.ui.com bullseye main release beta' > /etc/ap
 RUN chmod 666 /etc/apt/sources.list.d/ubiquiti.list
 RUN apt-get update
 RUN --mount=type=bind,from=firmware,source=/opt/debs,target=/debs --mount=type=bind,target=/git-debs,source=put-deb-files-here,ro \
-      apt-get -o DPkg::Options::=--force-confdef -y --no-install-recommends install /git-debs/*.deb /debs/*.deb unifi-protect
-RUN rm -rf /var/lib/apt/lists/*
+      apt-get -o DPkg::Options::=--force-confdef -y --no-install-recommends install /git-debs/*.deb /debs/*.deb unifi-protect && \
+      find /etc/dpkg/dpkg.cfg.d -type f -exec sed -i "s#/usr/bin/systemd-cat -t ##g" {} \; && \
+      apt-mark hold postgresql-14 postgresql-9.6 && \
+      apt update && apt upgrade -y --no-install-recommends && \
+      rm -rf /var/lib/apt/lists/*
 RUN echo "exit 0" > /usr/sbin/policy-rc.d
 RUN sed -i "s/redirectHostname: 'unifi'//" /usr/share/unifi-core/app/config/default.yaml
 RUN mv /sbin/mdadm /sbin/mdadm.orig
@@ -91,10 +94,6 @@ RUN mkdir /var/log/postgresql && ln -s /bin/true /usr/bin/pg_createcluster
 RUN mv /usr/bin/pg_isready /usr/bin/pg_isready.orig && ln -s /bin/true /usr/bin/pg_isready
 RUN ln -s /bin/true /usr/bin/pg_dropcluster && ln -s /bin/true /usr/bin/pg_conftool && ln -fs /usr/lib/postgresql/14/bin/pg_dump /usr/bin/pg_dump
 RUN chown root: /etc/sudoers.d/unifi-core
-
-RUN find /etc/dpkg/dpkg.cfg.d -type f -exec sed -i "s#/usr/bin/systemd-cat -t ##g" {} \;
-RUN apt-mark hold postgresql-14 postgresql-9.6
-RUN apt update && apt upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
 COPY files/sbin /sbin/
 COPY files/usr /usr/
