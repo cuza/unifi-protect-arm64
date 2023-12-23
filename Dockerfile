@@ -22,23 +22,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
     && apt-get -y --no-install-recommends install \
-        curl \
-        wget \
-        mount \
-        psmisc \
-        dpkg \
-        apt \
-        lsb-release \
-        sudo \
-        gnupg \
-        apt-transport-https \
-        ca-certificates \
-        dirmngr \
-        mdadm \
-        iproute2 \
-        ethtool \
-        procps \
-        systemd-timesyncd \
+        curl wget mount psmisc dpkg apt lsb-release sudo dnsutils gnupg apt-transport-https \
+        ca-certificates dirmngr mdadm iproute2 ethtool procps systemd-timesyncd \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
@@ -104,6 +89,7 @@ RUN sed -i 's/sudo .* psql/psql/' /usr/lib/ulp-go/scripts/unifi-goapp-mgnt-exten
 RUN mkdir /var/log/postgresql && ln -s /bin/true /usr/bin/pg_createcluster
 RUN mv /usr/bin/pg_isready /usr/bin/pg_isready.orig && ln -s /bin/true /usr/bin/pg_isready
 RUN ln -s /bin/true /usr/bin/pg_dropcluster && ln -s /bin/true /usr/bin/pg_conftool && ln -fs /usr/lib/postgresql/14/bin/pg_dump /usr/bin/pg_dump
+RUN mkdir -p /run/systemd/resolve && ln -s /etc/resolv.conf /run/systemd/resolve/resolv.conf
 RUN chown root: /etc/sudoers.d/unifi-core
 
 COPY files/sbin /sbin/
